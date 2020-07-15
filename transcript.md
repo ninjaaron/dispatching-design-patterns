@@ -154,9 +154,6 @@ If we try to change an immutable struct in place, we get an error:
 ```julia
 julia> mypoint.x = 3.0
 ERROR: setfield! immutable struct of type Point cannot be changed
-Stacktrace:
- [1] setproperty!(::Point, ::Symbol, ::Float64) at ./Base.jl:34
- [2] top-level scope at REPL[4]:1
 ```
 
 This is often a good thing. In the case of a point, it's a way to
@@ -442,4 +439,397 @@ flexibility they provide. Julia is already dynamically typed, but type
 parameters give extra information to the compiler to help it create
 efficient code without having to pin down specific types at dev time.
 
-Coming back to the `Point` example from earlier
+Coming back to the `Point` example from earlier, one potential
+weakness is that it only works with `Float64` types. However, we might
+want it to work with other types as well. What we can do is declare a
+struct as a _type constructor_. This isn't the same as an object
+constructor. This is an incomplete type that takes another type as a
+parameter to complete it. Here's an example:
+
+```julia
+julia> struct Point{T}
+           x::T
+           y::T
+       end
+
+julia> Point(1, 3)
+Point{Int64}(1, 3)
+```
+
+Here, `struct Point{T}` shows that we are declaring a type constructor
+for concrete types where the type variable `T` is filled in with
+another type. `T` could be anything. It's just a convention.
+
+`x::T` and `y::T` shows that both `x` and `y` will be of type T when
+the value of T is known. The types for type variables can be specified
+manually with the constructor, but it is normally inferred from the
+input arguments. Here, we use `Int64`s as the input arguments, so
+`Int64` becomes the type parameter. Now, because both `x` and `y` are
+specified in terms of the same type variable, they must be the same
+type.
+
+```julia
+julia> Point(1, 3.0)
+ERROR: MethodError: no method matching Point(::Int64, ::Float64)
+Closest candidates are:
+  Point(::T, ::T) where T at REPL[2]:2
+```
+
+If we want different types (which would sort of be unusual in the
+context of a point, though perhaps there could be a good reason), we
+would use two type variables in the struct definition:
+
+```julia
+julia> struct TwoTypePoint{X,Y}
+           x::X
+           y::Y
+       end
+
+julia> TwoTypePoint(1, 3.0)
+TwoTypePoint{Int64,Float64}(1, 3.0)
+```
+
+One thing to keep in mind about the type variables we've used so far
+is that they are unconstrained, so they could literally be anything:
+
+```julia
+julia> Point("foo", "bar")
+Point{String}("foo", "bar")
+```
+
+Obviously a point with strings for `x` and `y` is a pretty bad idea
+and breaks a lot of assumptions about what a point is by functions
+that might deal with this type. We probably want to limit the
+constructor to only working with numeric types. We _could_ do this with
+an absract type:
+
+```julia
+julia> struct RealPoint
+           x::Real
+           y::Real
+       end
+
+julia> RealPoint(0x5, 0xaa)
+RealPoint(0x05, 0xaa)
+```
+
+This _works_, but it doesn't insure that both `x` and `y` are the same
+concrete type, and much more importantly, it makes it impossible for
+the compiler to infer the concrete types of `x` and `y`, meaning it
+cannot optimize very well.
+
+What we can do instead is constrain the type variable:
+
+```julia
+julia> struct Point{T <: Real}
+           x::T
+           y::T
+       end
+
+julia> Point(1, 3)
+Point{Int64}(1, 3)
+
+julia> Point(1.4, 2.5)
+Point{Float64}(1.4, 2.5)
+
+julia> Point("foo", "bar")
+ERROR: MethodError: no method matching Point(::String, ::String)
+```
+
+Using this approach, we can make reasonable type constraints, keep
+good performance, and still keep our point from being limited to one
+concrete numeric type.
+
+Parameterized types are especially useful for defining container types
+that are meant to store all kinds of objects. As an example, we're
+going to define a linked list. This is not really a very practical
+data structure in Julia, but it's easy to define, and it shows the
+kind of situation where type variable are really useful.
+
+```julia
+# the list itself
+struct Nil end
+
+struct List{T}
+    head::T
+    tail::Union{List{T}, Nil}
+end
+```
+
+So the empty struct, `Nil` is to signal the end of a list. The list
+itself has one field which is the value the node contains, and a
+second field which contains the rest of the list (which is either
+another instance of `List{T}` or `Nil`).
+
+```julia
+# built a list from an array
+mklist(array::AbstractArray{T}) where T =
+    foldr(List{T}, array, init=Nil())
+```
+
+Next, we implement a function that create a list from an array (for
+demonstration purposes).
+
+```julia
+# implement the iteration protocol
+Base.iterate(l::List) = iterate(l, l)
+Base.iterate(::List, l::List) = l.head, l.tail
+Base.iterate(::List, ::Nil) = nothing
+```
+
+Finally, we implement the iteration protocol on the list, which what
+`for` loops use internally. I don't want to cover this specific code
+in too much detail, but this is a common theme in Julia code: If you
+want to override part of Julia's syntax for your specific type, there
+is usually a function somewhere in Base that you can add methods to
+for your type. You have to look through the documentation to find
+them, but I have a link specifically for the iteration protocol in the
+notes.
+
+https://docs.julialang.org/en/v1/base/collections/#lib-collections-iteration-1
+
+The important thing here is that we have a basic implementation of a
+linked list here that is as efficient as it can be and works with any
+kind of value thanks to parametric types.
+
+```julia
+julia> list = mklist(1:3)
+List{Int64}(1, List{Int64}(2, List{Int64}(3, Nil())))
+
+julia> for val in list
+           println(val)
+       end
+1
+2
+3
+
+julia> foreach(println, mklist(["foo", "bar"]))
+foo
+bar
+```
+
+### The Trait Pattern
+
+One thing I don't love about Julia's design is that types can only
+inherit from one super type. Julia's types are strictly
+hierarchical. This doesn't always map well to real world problems.
+
+For example, `Int64` is a type of number, while `String` is a type of
+text. However, both things can be sorted. In some languages, like
+Haskell or Rust, you could explicitly add an `Ord` trait to these with
+the appropriate methods to implement an interface that allows
+ordering. They can implement methods from multiple traits for a more
+flexible interface.
+
+Julia doesn't have a language-level feature like this, and you could
+argue that it doesn't need it. You can simply add methods to support
+any interface you like without needing to say anything about it in
+terms of types. However, it still can be useful in terms of mentally
+mapping how different types in your code are related. In practical
+terms, it can be useful for dispatching to different strategies for
+different types.
+
+The trait pattern, sometimes called "the Holy trait" after Tim Holy,
+who suggested it on the Julia mailing list, emerged to address this
+usecase. It is now used a fair amount in `Base` and the Julia standard
+library.
+
+As an example, let's use our newly created linked-list:
+
+```julia
+julia> map(uppercase, mklist(["foo", "bar", "baz"]))
+ERROR: MethodError: no method matching length(::List{String})
+Closest candidates are:
+  length(::Core.SimpleVector) at essentials.jl:596
+  length(::Base.MethodList) at reflection.jl:852
+  length(::Core.MethodTable) at reflection.jl:938
+```
+
+The error message reports that this doesn't work because `List`
+doesn't have a `length` method. This is true, but it's not the whole
+story. In order to be efficient, `map` tries to determine the length
+of the output in advance so it can allocate all the space needed for
+the new array in advance. *However*, this is not actually
+necessary. Julia arrays can be dynamically resized as they are built
+up, so there `map` could still theoretically work without a `length`
+method, and indeed, you can make it do this. Simply add
+`Base.IteratorSize` trait---in this case of the type
+`Base.SizeUnknown`. The funny thing in Julia is that the default
+
+```julia
+julia> Base.IteratorSize(::Type{List}) = Base.SizeUnknown()
+
+julia> map(uppercase, mklist(["foo", "bar", "baz"]))
+3-element Array{String,1}:
+ "FOO"
+ "BAR"
+ "BAZ
+ ```
+
+Now, everything works as expected.
+
+What's going on? If we look at `generator.jl` in the source code for
+`Base`, we will find these lines:
+
+```julia
+abstract type IteratorSize end
+struct SizeUnknown <: IteratorSize end
+struct HasLength <: IteratorSize end
+struct HasShape{N} <: IteratorSize end
+struct IsInfinite <: IteratorSize end
+```
+
+This is the beginning of how a trait is implemented. Just descriptions
+of different iterator sizes with no data layout. These traits exist
+purely to give the compiler extra information. If we look down a
+little further, we find code like this:
+
+```julia
+IteratorSize(x) = IteratorSize(typeof(x))
+IteratorSize(::Type) = HasLength()  # HasLength is the default
+```
+
+For some reason, the default `IteratorSize` is `HasLength`. This is
+great for efficiency if your type actually has a length method, but
+leads to a rather unfortunate scenario if your data structure has no
+length, like if it is a generator, since the error you get gives no
+indication that there is any fix aside from implementing a `length`
+method.
+
+Anyway, you can use traits to efficiently implement similar patterns.
+
+```julia
+struct Zlurmable end
+Zlurmable(::T) where T = error("Type $T doesn't implement the Zlurmable trait")
+
+zlurm(x) = zlurm(Zlurmable(x), x)
+zlurm(::Zlurmable, x) = x + 1
+```
+
+This is a simple case where there are no sub-types of the trait.
+
+```julia
+struct FooBar end
+
+# default case: error out
+FooBar(::T) where T = FooBar(T)
+FooBar(T::Type) = 
+    error("Type $T doesn't implement the FooBar interface.")
+
+add_foo_and_bar(x) = add_foo_and_bar(FooBar(x), x)
+add_foo_and_bar(::FooBar, x) = foo(x) + bar(x)
+```
+
+The downside here is that there is no way to tell if the type actually
+implements the required interface:
+
+```
+julia> FooBar(Int) = FooBar()
+FooBar
+
+julia> add_foo_and_bar(3)
+ERROR: MethodError: no method matching foo(::Int64)
+```
+
+We could add a registration function to ensure a registered type has
+the correct interface beforehand:
+
+```julia
+register_foobar(T::Type) =
+    if hasmethod(foo, Tuple{T}) && hasmethod(bar, Tuple{T})
+        @eval FooBar(::Type{$T}) = FooBar()
+    else
+        error("Type $T must implement `foo` and `bar` methods")
+    end
+```
+
+then:
+
+```julia
+julia> register_foobar(Int)
+ERROR: Type Int64 must implement `foo` and `bar` methods
+
+julia> foo(x::Int) = x + 1
+foo (generic function with 2 methods)
+
+julia> bar(x::Int) = x * 2
+bar (generic function with 1 method)
+
+julia> register_foobar(Int)
+FooBar
+
+julia> add_foo_and_bar(3)
+10
+```
+
+## Dispatches for basic pattern matching
+
+In some functional languages, you can define different function
+definitions for different values. This is how one might define a
+factorial function in Haskell:
+
+```haskell
+factorial 0 = 1
+factorial x = x * fact (x-1)
+```
+
+That means, when the input argument is 0, the output is 1. For all
+other inputs, the second definition is used, which is defined
+recursively and will continue reducing the input on recursive calls by
+1 until it reaches 0.
+
+You can't do exactly this in Julia (actually, you can if you encode
+numbers into types, but that makes the compiler sad). However, in
+practice, this feature is often used with tags that allow functions to
+deal with different input types. Because Julia functions dispatch
+based on types, that usecase actually is possible.
+
+One of the places this is most useful in Julia is when dealing with
+abstract syntax trees of the sort you interact with when defining
+macros, since you will often want to walk the syntax trees in a
+recursive way:
+
+```julia
+macro replace_1_with_x(expr)
+   esc(replace_1(expr))
+end
+
+replace_1(atom) = atom == 1 ? :x : atom
+replace_1(e::Expr) =
+    Expr(e.head, map(replace_1, e.args)...)
+```
+
+Here, we define an idiotic macro that replaces all instances of `1`
+with `x` in the code. Because abstract syntax trees are a recursively
+data structure composed of expressions containing lists of expressions
+and atoms, we can define actions on the nodes we're looking for while
+passing all the sub-nodes of an expression recursively to the same
+replace_1 function.
+
+```julia
+julia> x = 10
+10
+
+julia> @replace_1_with_x 5 + 1
+15
+
+julia> @replace_1_with_x 5 + 1 * (3 + 1)
+135
+
+julia> @macroexpand @replace_1_with_x 5 + 1 * (3 + 1)
+:(5 + x * (3 + x))
+```
+
+This approach is also useful for intercepting other types of nodes in
+syntax trees, if you want them, and can be helpful when traversing any
+kind of recursively-defined data structure. The linked list from above
+is another good example.
+
+```julia
+julia> Base.map(f, nil::Nil) = nil 
+
+julia> Base.map(f, l::List) = List(f(l.head), map(f, l.tail))
+
+julia> map(uppercase, mklist(["foo", "bar"]))
+List{String}("FOO", List{String}("BAR", Nil()))
+```
