@@ -23,8 +23,6 @@ class: center, middle
 
 # Dispatching Design Patterns
 
-email redacted!
-
 ---
 
 class: center, middle
@@ -75,6 +73,7 @@ class: middle
   high-level abstractions.
 - For example, the "strategy pattern" is replaced by passing functions
   to functions.
+
   ```julia
   function party_hard(person::Person, pregame_strategy::Function)
       pregame_strategy(person)
