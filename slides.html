@@ -37,7 +37,7 @@ class: middle
 
 **design pattern**:
 
-1. A formal way of documenting a general reusable solution to a
+- **1.** A formal way of documenting a general reusable solution to a
    design problem in a particular field of expertise.
 
 (wiktionary.org)
@@ -47,8 +47,6 @@ class: middle
 class: middle
 
 **dispatch**:
-
-[...]
 
 - **7.** To destroy quickly and efficiently.
 - **8.** (computing) To pass on for further processing,
@@ -62,8 +60,10 @@ class: middle
 ## Julia is different
 
 - Julia looks like Python or Ruby but objects are different.
+
 - Instead of classes, Julia interfaces are designed in terms of
-  structs and multiple dispatch, more similar to Common Lisp.
+  structs and multiple dispatch, more similarly to Common Lisp.
+
 - For object-oriented programers, Julia's objects may be disorienting.
 
 ---
@@ -71,15 +71,17 @@ class: middle
 
 - Many "Gang of Four" design patterns are made irrelevant by Julia's
   high-level abstractions.
+
 - For example, the "strategy pattern" is replaced by passing functions
   to functions.
 
-  ```julia
-  function party_hard(person::Person, pregame_strategy::Function)
-      pregame_strategy(person)
-      @goto PARTY
-      # etc.
-  ```
+    ```julia
+    function party_hard(person::Person, pregame_strategy::Function)
+        pregame_strategy(person)
+        @goto PARTY
+        # etc.
+    ```
+
 - Peter Norvig: _Design Patterns in Dynamic Languages_
   http://www.norvig.com/design-patterns/
 
@@ -90,28 +92,30 @@ class: center, middle
 
 ---
 class: middle
+
 - It's all about the structs.
 
-  ```julia
-  # Meet the struct:
+    ```julia
+    # Meet the struct:
 
-  struct Point
-      x::Float64
-      y::Float64
-  end
-  ```
+    struct Point
+        x::Float64
+        y::Float64
+    end
+    ```
   
 - Struts get a default constructor.
  
-  ```julia
-  julia> mypoint = Point(5, 7)
-  Point(5.0, 7.0)
-  ```
+    ```julia
+    julia> mypoint = Point(5, 7)
+    Point(5.0, 7.0)
+    ```
 - attribute access.
-  ```julia
-  julia> mypoint.x
-  5.0
-  ```
+
+    ```julia
+    julia> mypoint.x
+    5.0
+    ```
 
 ---
 class: middle
@@ -126,14 +130,14 @@ class: middle
 
     ```julia
     julia> mutable struct Starship
-              name::String
-              location::Point
+               name::String
+               location::Point
            end
 
     julia> ship = Starship("U.S.S. Enterprise", Point(5, 7))
     Starship("U.S.S. Enterprise", Point(5.0, 7.0))
 
-    # move the ship
+    # move the ship, so to speak
     julia> ship.location = Point(6, 8)
     ```
 
@@ -141,6 +145,7 @@ class: middle
 class: middle
 
 - Alternate constructors.
+
     ```julia
     julia> Starship(name, x, y) = Starship(name, Point(x, y))
     Starship
@@ -195,9 +200,11 @@ class: middle
 
 - In OOP, methods specifically are about providing simple interfaces
   composite data types.
+
 - In Julia methods are attached functions, not objects--however, they
   are still defined in terms of types, so you can still provide simple
   interfaces to complex data in much the same way as with OOP.
+
 - This is one way in which polymorphism is achieved in Julia.
   
     ```julia
@@ -245,6 +252,7 @@ class: middle
 
 - Julia provides abstract types to make hierarchies of types with
   shared behavior.
+
 - Abstract types don't have a data layout.
 
     ```julia
@@ -330,7 +338,9 @@ class: middle
 - One possible downside of methods being bound to functions rather
   than objects is that it doesn't provide an obvious path for code
   organization.
+
 - Julia has modules for keeping related chunks of code together.
+
 - Now for something weird with modules... This is not normal in Julia,
   I'm just putting it out there: encapsulating types and their
   interfaces in modules...
@@ -366,8 +376,11 @@ class: middle, center
 class: middle
 
 - parametric types are called "generics" in some languages.
+
 - It's not really dynamic typing, but it feels a bit like it.
-- The system involves type constructors that take type variables.
+
+- It involves _type constructors_ that define parameters with _type
+  variables_.
 
     ```julia
     julia> struct Point{T}  # `T` is a type variable
@@ -415,13 +428,14 @@ class: middle
 
 - It would be nice to make sure we could ensure that `x` and `y` are
   numeric types.
+
 - This works, but it is also bad (for performance):
 
     ```julia
     julia> struct RealPoint
-            x::Real
-            y::Real
-        end
+               x::Real
+               y::Real
+           end
 
     julia> RealPoint(0x5, 0xaa)
     RealPoint(0x05, 0xaa)
@@ -435,9 +449,9 @@ class: middle
 
     ```julia
     julia> struct Point{T <: Real}
-            x::T
-            y::T
-        end
+               x::T
+               y::T
+           end
 
     julia> Point(1, 3)
     Point{Int64}(1, 3)
@@ -524,21 +538,24 @@ class: middle, center
 class: middle
 
 - Haskell and Rust allow implementing types that
-  provide the interface of numberic operations and also sorting
+  provide the interface of numeric operations and also sorting
   operations (combine `Num` and `Ord`)
+
 - Julia's type system has no way to describe types that
   implement multiple interfaces (the way method resolution works makes
   this complicated)
+
+   This is arguably not a huge problem because Julia types can have
+   interfaces implemented without having to belong to a certain type
+   hierarchy.
+
 - However, Tim Holy came up with a solution: the "Holy" trait.
 
-P.S. This is arguably not a huge problem because Julia types can
-have interfaces implemented without having to belong to a certain type
-hierarchy.
 
 ---
 class: middle, center
 
-## an example from the `Base`
+## an example from `Base`
 
 ---
 class: middle
@@ -600,6 +617,7 @@ class: middle
 
 - This is the beginning of how a trait is implemented. Just descriptions
   of different iterator sizes with no data layout.
+
 - Traits are empty types that give extra information to the compile it
   can use for dispatches.
   
@@ -614,6 +632,7 @@ class: middle
     ```
 - This makes `HasLength` the default approach to sizing an iterable
   for user-defined types.
+
 - This seems like a bad idea, but it's probably too late to change it.
   
 ---
@@ -705,10 +724,12 @@ recursively and will continue reducing the input on recursive calls by
 class: middle
 
 - You can't do _exactly_ this in Julia.
+
 - On the other hand, this feature is often used with tags that allow
   functions to deal with different types. Julia's multiple dispatch
   works in a similar way.
-- This is great for dealing Julia's Syntax trees in macros in a
+
+- This is great for dealing with Julia's syntax trees in macros in a
   recursive way.
 
     ```julia
@@ -717,8 +738,7 @@ class: middle
     end
 
     replace_1(atom) = atom == 1 ? Symbol("x") : atom
-    replace_1(e::Expr) =
-        Expr(e.head, map(replace_1, e.args)...)
+    replace_1(e::Expr) = Expr(e.head, map(replace_1, e.args)...)
     ```
 
 ---
@@ -768,12 +788,14 @@ class: middle
   similar techniques (and others), _Type-Dispatch Design: Post
   Object-Oriented Programming for Julia_
   http://www.stochasticlifestyle.com/type-dispatch-design-post-object-oriented-programming-julia/
+
 - Tom Kwong released a book in January of 2020 called _Hands-On Design
   Patterns and Best Practices with Julia_
   https://www.packtpub.com/eu/application-development/hands-design-patterns-julia-10
   which contains some similar material and a lot more besides. I would
   recommend it to anyone interested in developing large-scale
   applications or libraries in Julia.
+
 - This talk is based on a guide I wrote in Jupyter notebooks:
   https://github.com/ninjaaron/oo-and-polymorphism-in-julia
   
