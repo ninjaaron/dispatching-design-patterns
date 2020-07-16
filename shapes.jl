@@ -1,57 +1,55 @@
 module Shape
+    abstract type T end
 
-abstract type T end
+    area(shape::T) = throw(MethodError(area, shape))
 
-area(shape::T) = throw(MethodError(area, shape))
-
-combined_area(a::T, b::T) = area(a) + area(b)
-
+    combined_area(a::T, b::T) = area(a) + area(b)
 end # module Shape
 
+
 module Circle
-import ..Shape
+    import ..Shape
 
-struct T <: Shape.T
-    diameter::Float64
+    struct T <: Shape.T
+        diameter::Float64
+    end
+    radius(c::T) = c.diameter / 2
+    Shape.area(c::T) = π * radius(c) ^ 2
 end
-radius(c::T) = c.diameter / 2
-Shape.area(c::T) = π * radius(c) ^ 2
 
-end # module Circle
 
 module AbstractRectangle
-import ..Shape
+    import ..Shape
 
-abstract type T <: Shape.T end
+    abstract type T <: Shape.T end
 
-width(rectangle::T) = throw(MethodError(width, rectangle))
-height(rectangle::T) = throw(MethodError(width, rectangle))
-Shape.area(r::T) = width(r) * height(r) 
+    width(rectangle::T) = throw(MethodError(width, rectangle))
+    height(rectangle::T) = throw(MethodError(width, rectangle))
+    Shape.area(r::T) = width(r) * height(r) 
+end
 
-end # module AbstractRectangle
 
 module Rectangle
-import ..AbstractRectangle
+    import ..AbstractRectangle
 
-struct T <: AbstractRectangle.T
-    width::Float64
-    height::Float64
+    struct T <: AbstractRectangle.T
+        width::Float64
+        height::Float64
+    end
+    AbstractRectangle.width(r::T) = r.width
+    AbstractRectangle.height(r::T) = r.height
 end
-AbstractRectangle.width(r::T) = r.width
-AbstractRectangle.height(r::T) = r.height
-
-end # module Rectangle
  
+
 module Square
-import ..AbstractRectangle
+    import ..AbstractRectangle
 
-struct T <: AbstractRectangle.T
-    length::Float64
+    struct T <: AbstractRectangle.T
+        length::Float64
+    end
+    AbstractRectangle.width(s::T) = s.length
+    AbstractRectangle.height(s::T) = s.length
 end
-AbstractRectangle.width(s::T) = s.length
-AbstractRectangle.height(s::T) = s.length
-
-end # module Square
 
 c = Circle.T(3)
 s = Square.T(3)
