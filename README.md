@@ -697,15 +697,6 @@ indication that there is any fix aside from implementing a `length`
 method.
 
 Anyway, you can use traits to efficiently implement similar patterns.
-
-```julia
-struct Zlurmable end
-Zlurmable(::T) where T = error("Type $T doesn't implement the Zlurmable trait")
-
-zlurm(x) = zlurm(Zlurmable(x), x)
-zlurm(::Zlurmable, x) = x + 1
-```
-
 This is a simple case where there are no sub-types of the trait.
 
 ```julia
@@ -723,7 +714,7 @@ add_foo_and_bar(::FooBar, x) = foo(x) + bar(x)
 The downside here is that there is no way to tell if the type actually
 implements the required interface:
 
-```
+```julia
 julia> FooBar(Int) = FooBar()
 FooBar
 
