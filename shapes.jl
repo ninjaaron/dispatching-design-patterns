@@ -20,7 +20,6 @@ module AbstractRectangle
     import ..Shape
 
     abstract type T <: Shape.T end
-
     width(rectangle::T) = throw(MethodError(width, rectangle))
     height(rectangle::T) = throw(MethodError(width, rectangle))
     Shape.area(r::T) = width(r) * height(r) 
