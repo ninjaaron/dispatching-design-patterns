@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Title</title>
+    <meta charset="utf-8">
+    <style>
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+      body { font-family: 'Droid Serif'; }
+      h1, h2, h3 {
+        font-family: 'Yanone Kaffeesatz';
+        font-weight: normal;
+      }
+      .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+class: center, middle
+
+# Dispatching Design Patterns
+
+email redacted!
+
+---
+
+class: center, middle
+
+github repo for this talk:
+
+https://github.com/ninjaaron/dispatching-design-patterns
+
+---
+
+class: middle
+
+**design pattern**:
+
+1. A formal way of documenting a general reusable solution to a
+   design problem in a particular field of expertise.
+
+(wiktionary.org)
+
+---
+
+class: middle
+
+**dispatch**:
+
+[...]
+
+- **7.** To destroy quickly and efficiently.
+- **8.** (computing) To pass on for further processing,
+   especially via a dispatch table [...]
+
+(also wiktionary.org)
+
+---
+class: middle
+
+## Julia is different
+
+- Julia looks like Python or Ruby but objects are different.
+- Instead of classes, Julia interfaces are designed in terms of
+  structs and multiple dispatch, more similar to Common Lisp.
+- For object-oriented programers, Julia's objects may be disorienting.
+
+---
+class: middle
+
+- Many "Gang of Four" design patterns are made irrelevant by Julia's
+  high-level abstractions.
+- For example, the "strategy pattern" is replaced by passing functions
+  to functions.
+  ```julia
+  function party_hard(person::Person, pregame_strategy::Function)
+      pregame_strategy(person)
+      @goto PARTY
+      # etc.
+  ```
+- Peter Norvig: _Design Patterns in Dynamic Languages_
+  http://www.norvig.com/design-patterns/
+
+---
+class: center, middle
+
+# Encapsulation in Julia
+
+---
+class: middle
+- It's all about the structs.
+
+  ```julia
+  # Meet the struct:
+
+  struct Point
+      x::Float64
+      y::Float64
+  end
+  ```
+  
+- Struts get a default constructor.
+ 
+  ```julia
+  julia> mypoint = Point(5, 7)
+  Point(5.0, 7.0)
+  ```
+- attribute access.
+  ```julia
+  julia> mypoint.x
+  5.0
+  ```
+
+---
+class: middle
+
+- Structs are immutable by default. This is usually good.
+
+    ```julia
+    julia> mypoint.x = 3.0
+    ERROR: setfield! immutable struct of type Point cannot be changed
+    ```
+- However, some objects should change over time.
+
+    ```julia
+    julia> mutable struct Starship
+              name::String
+              location::Point
+           end
+
+    julia> ship = Starship("U.S.S. Enterprise", Point(5, 7))
+    Starship("U.S.S. Enterprise", Point(5.0, 7.0))
+
+    # move the ship
+    julia> ship.location = Point(6, 8)
+    ```
+
+---
+class: middle
+
+- Alternate constructors.
+    ```julia
+    julia> Starship(name, x, y) = Starship(name, Point(x, y))
+    Starship
+
+    julia> othership = Starship("U.S.S. Defiant", 10, 2)
+    Starship("U.S.S. Defiant", Point(10.0, 2.0))
+    ```
+
+- Internal constructors with `new` _override_ the default constructor.
+
+    ```julia
+    julia> mutable struct FancyStarship
+               name::String
+               location::Point
+               FancyStarship(name, x, y) = new(name, Point(x, y))
+           end
+
+    julia> fancy = FancyStarship("U.S.S. Discovery", 14, 32)
+    fancy = FancyStarship("U.S.S. Discovery", 14, 32)
+    ```
+
+---
+class: middle, center
+
+# Methods
+
+---
+class: middle
+
+- Abstraction in general is about simplifying internal complexity.
+
+    ```julia
+    function move!(starship, heading, distance)
+        Δx = distance * cosd(heading)
+        Δy = distance * sind(heading)
+        old = starship.location
+        starship.location = Point(old.x + Δx, old.y + Δy)
+    end
+    ```
+- Users shouldn't need to care about trigonometry to move a ship.
+
+    ```julia
+    julia> foo_ship = Starship("Foo", 3, 4)
+    Starship("Foo", Point(3.0, 4.0))
+
+    julia> move!(foo_ship, 45, 1.5)
+    Point(4.060660171779821, 5.060660171779821)
+    ```
+
+---
+class: middle
+
+- In OOP, methods specifically are about providing simple interfaces
+  composite data types.
+- In Julia methods are attached functions, not objects--however, they
+  are still defined in terms of types, so you can still provide simple
+  interfaces to complex data in much the same way as with OOP.
+- This is one way in which polymorphism is achieved in Julia.
+  
+    ```julia
+    struct Rectangle
+        width::Float64
+        height::Float64
+    end
+    width(r::Rectangle) = r.width
+    height(r::Rectangle) = r.height
+
+    struct Square
+        length::Float64
+    end
+    width(s::Square) = s.length
+    height(s::Square) = s.length
+    ```
+    
+---
+class: middle
+
+- Once we have the interface for two different kinds of rectangles, we
+  can write higher level functions that can work with either type.
+
+    ```julia
+    julia> area(shape) = width(shape) * height(shape)
+    area (generic function with 1 method)
+
+    julia> area(Rectangle(3, 4))
+    12.0
+
+    julia> area(Square(3))
+    9.0
+    ```
+
+- Julia methods can do everything methods can do in OOP languages, but
+  they can do a lot more, too!
+  
+---
+class: middle, center
+
+# Polymorphism
+
+---
+class: middle
+
+- Julia provides abstract types to make hierarchies of types with
+  shared behavior.
+- Abstract types don't have a data layout.
+
+    ```julia
+    # Types which inherit from `Shape` should provide an
+    # `area` method.
+
+    abstract type Shape end
+    ```
+- However, you can define methods in terms of abstract types.
+
+    ```julia
+    combined_area(a::Shape, b::Shape) = area(a) + area(b)
+    ```
+
+---
+class: middle
+
+- You can inherit from abstract types. `<:` is the subtype operator.
+
+    ```julia
+    struct Circle <: Shape
+        diameter::Float64
+    end
+    radius(c::Circle) = c.diameter / 2
+    area(c::Circle) = π * radius(c) ^ 2
+    ```
+
+- Abstract types can also be subtypes of other abstract types.
+
+    ```julia
+    # Types which inherit from `AbstractRectangle should
+    # provide `height` and `width` methods.
+
+    abstract type AbstractRectangle <: Shape end
+    area(r::AbstractRectangle) = width(r) * height(r)
+    ```
+
+---
+class: middle
+
+- And to fit the previous rectangles into the new type hierarchy:
+
+    ```julia
+    struct Rectangle <: AbstractRectangle
+        width::Float64
+        height::Float64
+    end
+    width(r::Rectangle) = r.width
+    height(r::Rectangle) = r.height
+
+    struct Square <: AbstractRectangle
+        length::Float64
+    end
+    width(s::Square) = s.length
+    height(s::Square) = s.length
+    ```
+    
+---
+class: middle
+
+- Hooray for polymorphism.
+
+    ```julia
+    const c = Circle(3)
+    const s = Square(3)
+    const r = Rectangle(3, 2)
+
+    @assert combined_area(c, s) == 16.068583470577035
+    @assert combined_area(s, r) == 15.0
+    ```
+    
+    (and yes, Julia will optimize all of this with the JIT. This case
+    requires no runtime method lookup)
+
+---
+class: middle, center
+
+# Modules for Code Organization
+
+---
+class: middle
+
+- One possible downside of methods being bound to functions rather
+  than objects is that it doesn't provide an obvious path for code
+  organization.
+- Julia has modules for keeping related chunks of code together.
+- Now for something weird with modules... This is not normal in Julia,
+  I'm just putting it out there: encapsulating types and their
+  interfaces in modules...
+
+---
+class: middle
+
+    ```julia
+    module Shape
+
+    abstract type T end
+    area(shape::T) = throw(MethodError(area, shape))
+    combined_area(a::T, b::T) = area(a) + area(b)
+
+    end # module Shape
+
+
+    module Circle
+
+    import ..Shape
+
+    struct T <: Shape.T
+        diameter::Float64
+    end
+    radius(c::T) = c.diameter / 2
+    Shape.area(c::T) = π * radius(c) ^ 2
+
+    end # module Circle
+    ```
+
+---
+class: middle, center
+
+# Parametric Types: statically typed dynamic typing
+
+---
+class: middle
+
+- parametric types are called "generics" in some languages.
+- It's not really dynamic typing, but it feels a bit like it.
+- The system involves type constructors that take type variables.
+
+    ```julia
+    julia> struct Point{T}  # `T` is a type variable
+               x::T
+               y::T
+           end
+
+    julia> Point(1, 3)
+    Point{Int64}(1, 3)  # `T` was infered as `Int64`
+    ```
+
+- Note that all cases of `T` must be of the same concrete type.
+
+    ```julia
+    julia> Point(1, 3.0)
+    ERROR: MethodError: no method matching Point(::Int64, ::Float64)
+    Closest candidates are:
+    Point(::T, ::T) where T at REPL[2]:2
+    ```
+
+---
+class: middle
+
+- type constructors can also take multiple type variables.
+
+    ```julia
+    julia> struct TwoTypePoint{X,Y}
+               x::X
+               y::Y
+           end
+
+    julia> TwoTypePoint(1, 3.0)
+    TwoTypePoint{Int64,Float64}(1, 3.0)
+    ```
+
+---
+class: middle
+
+- This is bad:
+
+    ```julia
+    julia> Point("foo", "bar")
+    Point{String}("foo", "bar")
+    ```
+
+- It would be nice to make sure we could ensure that `x` and `y` are
+  numeric types.
+- This works, but it is also bad (for performance):
+
+    ```julia
+    julia> struct RealPoint
+            x::Real
+            y::Real
+        end
+
+    julia> RealPoint(0x5, 0xaa)
+    RealPoint(0x05, 0xaa)
+    ```
+
+---
+class: middle
+
+- This is the right way to constrain on an abstract type, but to still
+  get the performance of a concrete type:
+
+    ```julia
+    julia> struct Point{T <: Real}
+            x::T
+            y::T
+        end
+
+    julia> Point(1, 3)
+    Point{Int64}(1, 3)
+
+    julia> Point(1.4, 2.5)
+    Point{Float64}(1.4, 2.5)
+
+    julia> Point("foo", "bar")
+    ERROR: MethodError: no method matching Point(::String, ::String)
+    ```
+- yay!
+
+---
+class: middle
+
+- Parameterized types are great for defining your own container types.
+
+    ```julia
+    # the list itself
+    struct Nil end
+
+    struct List{T}
+        head::T
+        tail::Union{List{T}, Nil}
+    end
+    ```
+
+---
+class: middle
+
+- For the demonstration, we create a function to construct a `List`
+  from an abstract array:
+  
+    ```julia
+    # built a list from an array
+    mklist(array::AbstractArray{T}) where T =
+        foldr(List{T}, array, init=Nil())
+    ```
+
+- `where T` is the syntax for declaring a type variable outside a
+  struct definition.
+
+---
+class: middle
+
+- and add the iteration protocol... (this is how you make for loops
+  work in Julia)
+
+    ```julia
+    # implement the iteration protocol
+    Base.iterate(l::List) = iterate(l, l)
+    Base.iterate(::List, l::List) = l.head, l.tail
+    Base.iterate(::List, ::Nil) = nothing
+    ```
+
+---
+class: middle
+
+- Thanks to parametric types, our linked list is as efficient as it can
+  be, while still being able to hold any type of element.
+
+    ```julia
+    julia> list = mklist(1:3)
+    List{Int64}(1, List{Int64}(2, List{Int64}(3, Nil())))
+
+    julia> for val in list
+               println(val)
+           end
+    1
+    2
+    3
+
+    julia> foreach(println, mklist(["foo", "bar"]))
+    foo
+    bar
+    ```
+
+---
+class: middle, center
+
+# The Trait Pattern
+
+---
+class: middle
+
+- Haskell and Rust allow implementing types that
+  provide the interface of numberic operations and also sorting
+  operations (combine `Num` and `Ord`)
+- Julia's type system has no way to describe types that
+  implement multiple interfaces (the way method resolution works makes
+  this complicated)
+- However, Tim Holy came up with a solution: the "Holy" trait.
+
+P.S. This is arguably not a huge problem because Julia types can
+have interfaces implemented without having to belong to a certain type
+hierarchy.
+
+---
+class: middle, center
+
+## an example from the `Base`
+
+---
+class: middle
+
+```julia
+julia> map(uppercase, mklist(["foo", "bar", "baz"]))
+ERROR: MethodError: no method matching length(::List{String})
+Closest candidates are:
+  length(::Core.SimpleVector) at essentials.jl:596
+  length(::Base.MethodList) at reflection.jl:852
+  length(::Core.MethodTable) at reflection.jl:938
+```
+
+The error message reports that this doesn't work because `List`
+doesn't have a `length` method. This is true, but it's not the whole
+story. In order to be efficient, `map` tries to determine the length
+of the output in advance so it can allocate all the space needed for
+the new array in advance. *However*, this is not actually
+necessary. Julia arrays can be dynamically resized as they are built
+up, so there `map` could still theoretically work without a `length`
+method, and indeed, you can make it do this. Simply add
+`Base.IteratorSize` trait---in this case of the type
+`Base.SizeUnknown`. The funny thing in Julia is that the default
+
+---
+
+```julia
+julia> Base.IteratorSize(::Type{List}) = Base.SizeUnknown()
+
+julia> map(uppercase, mklist(["foo", "bar", "baz"]))
+3-element Array{String,1}:
+ "FOO"
+ "BAR"
+ "BAZ
+ ```
+
+Now, everything works as expected.
+
+What's going on? If we look at `generator.jl` in the source code for
+`Base`, we will find these lines:
+
+```julia
+abstract type IteratorSize end
+struct SizeUnknown <: IteratorSize end
+struct HasLength <: IteratorSize end
+struct HasShape{N} <: IteratorSize end
+struct IsInfinite <: IteratorSize end
+```
+
+This is the beginning of how a trait is implemented. Just descriptions
+of different iterator sizes with no data layout. These traits exist
+purely to give the compiler extra information. If we look down a
+little further, we find code like this:
+
+```julia
+IteratorSize(x) = IteratorSize(typeof(x))
+IteratorSize(::Type) = HasLength()  # HasLength is the default
+```
+
+For some reason, the default `IteratorSize` is `HasLength`. This is
+great for efficiency if your type actually has a length method, but
+leads to a rather unfortunate scenario if your data structure has no
+length, like if it is a generator, since the error you get gives no
+indication that there is any fix aside from implementing a `length`
+method.
+
+Anyway, you can use traits to efficiently implement similar patterns.
+
+```julia
+struct Zlurmable end
+Zlurmable(::T) where T = error("Type $T doesn't implement the Zlurmable trait")
+
+zlurm(x) = zlurm(Zlurmable(x), x)
+zlurm(::Zlurmable, x) = x + 1
+```
+
+This is a simple case where there are no sub-types of the trait.
+
+```julia
+struct FooBar end
+
+# default case: error out
+FooBar(::T) where T = FooBar(T)
+FooBar(T::Type) = 
+    error("Type $T doesn't implement the FooBar interface.")
+
+add_foo_and_bar(x) = add_foo_and_bar(FooBar(x), x)
+add_foo_and_bar(::FooBar, x) = foo(x) + bar(x)
+```
+
+The downside here is that there is no way to tell if the type actually
+implements the required interface:
+
+```
+julia> FooBar(Int) = FooBar()
+FooBar
+
+julia> add_foo_and_bar(3)
+ERROR: MethodError: no method matching foo(::Int64)
+```
+
+We could add a registration function to ensure a registered type has
+the correct interface beforehand:
+
+```julia
+register_foobar(T::Type) =
+    if hasmethod(foo, Tuple{T}) && hasmethod(bar, Tuple{T})
+        @eval FooBar(::Type{$T}) = FooBar()
+    else
+        error("Type $T must implement `foo` and `bar` methods")
+    end
+```
+
+then:
+
+```julia
+julia> register_foobar(Int)
+ERROR: Type Int64 must implement `foo` and `bar` methods
+
+julia> foo(x::Int) = x + 1
+foo (generic function with 2 methods)
+
+julia> bar(x::Int) = x * 2
+bar (generic function with 1 method)
+
+julia> register_foobar(Int)
+FooBar
+
+julia> add_foo_and_bar(3)
+10
+```
+
+## Dispatches for basic pattern matching
+
+In some functional languages, you can define different function
+definitions for different values. This is how one might define a
+factorial function in Haskell:
+
+```haskell
+factorial 0 = 1
+factorial x = x * fact (x-1)
+```
+
+That means, when the input argument is 0, the output is 1. For all
+other inputs, the second definition is used, which is defined
+recursively and will continue reducing the input on recursive calls by
+1 until it reaches 0.
+
+You can't do exactly this in Julia (actually, you can if you encode
+numbers into types, but that makes the compiler sad). However, in
+practice, this feature is often used with tags that allow functions to
+deal with different input types. Because Julia functions dispatch
+based on types, that usecase actually is possible.
+
+One of the places this is most useful in Julia is when dealing with
+abstract syntax trees of the sort you interact with when defining
+macros, since you will often want to walk the syntax trees in a
+recursive way:
+
+```julia
+macro replace_1_with_x(expr)
+   esc(replace_1(expr))
+end
+
+replace_1(atom) = atom == 1 ? :x : atom
+replace_1(e::Expr) =
+    Expr(e.head, map(replace_1, e.args)...)
+```
+
+Here, we define an idiotic macro that replaces all instances of `1`
+with `x` in the code. Because abstract syntax trees are a recursively
+data structure composed of expressions containing lists of expressions
+and atoms, we can define actions on the nodes we're looking for while
+passing all the sub-nodes of an expression recursively to the same
+replace_1 function.
+
+```julia
+julia> x = 10
+10
+
+julia> @replace_1_with_x 5 + 1
+15
+
+julia> @replace_1_with_x 5 + 1 * (3 + 1)
+135
+
+julia> @macroexpand @replace_1_with_x 5 + 1 * (3 + 1)
+:(5 + x * (3 + x))
+```
+
+This approach is also useful for intercepting other types of nodes in
+syntax trees, if you want them, and can be helpful when traversing any
+kind of recursively-defined data structure. The linked list from above
+is another good example.
+
+```julia
+julia> Base.map(f, nil::Nil) = nil 
+
+julia> Base.map(f, l::List) = List(f(l.head), map(f, l.tail))
+
+julia> map(uppercase, mklist(["foo", "bar"]))
+List{String}("FOO", List{String}("BAR", Nil()))
+```
+
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js">
+    </script>
+    <script>
+      var slideshow = remark.create();
+    </script>
+  </body>
+</html>
