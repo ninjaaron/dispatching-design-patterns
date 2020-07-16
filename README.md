@@ -395,27 +395,23 @@ got me thinking that a similar approach might be helpful in
 Julia. This should pattern should be seen as somewhat provisional,
 since I haven't observed it in Julia code in the wild. Nonetheless,
 here it is:
-
 ```julia
 module Shape
-
-abstract type T end
-area(shape::T) = throw(MethodError(area, shape))
-combined_area(a::T, b::T) = area(a) + area(b)
-
-end # module Shape
+    abstract type T end
+    area(shape::T) = throw(MethodError(area, shape))
+    combined_area(a::T, b::T) = area(a) + area(b)
+end
 
 
 module Circle
-import ..Shape
+    import ..Shape
 
-struct T <: Shape.T
-    diameter::Float64
+    struct T <: Shape.T
+        diameter::Float64
+    end
+    radius(c::T) = c.diameter / 2
+    Shape.area(c::T) = π * radius(c) ^ 2
 end
-radius(c::T) = c.diameter / 2
-Shape.area(c::T) = π * radius(c) ^ 2
-
-end # module Circle
 ```
 
 This approach is obviously quite boiler-plate-y for a short program,
