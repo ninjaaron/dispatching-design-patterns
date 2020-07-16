@@ -1,10 +1,8 @@
 module Shape
     abstract type T end
-
     area(shape::T) = throw(MethodError(area, shape))
-
     combined_area(a::T, b::T) = area(a) + area(b)
-end # module Shape
+end
 
 
 module Circle
