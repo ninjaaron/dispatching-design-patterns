@@ -102,6 +102,8 @@ function main()
     add!(second_customer, 250, 1)
     print_bill!(second_customer)
 end
+
+main()
 ```
 
 Let's forget about the main function for a moment because it's

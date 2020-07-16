@@ -544,7 +544,7 @@ Parameterized types are especially useful for defining container types
 that are meant to store all kinds of objects. As an example, we're
 going to define a linked list. This is not really a very practical
 data structure in Julia, but it's easy to define, and it shows the
-kind of situation where type variable are really useful.
+kind of situation where type variables are really useful.
 
 ```julia
 # the list itself
