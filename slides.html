@@ -76,9 +76,14 @@ class: middle
   to functions.
 
     ```julia
-    function party_hard(person::Person, pregame_strategy::Function)
-        pregame_strategy(person)
-        @goto PARTY
+    function go_to_party(party::Party, small_talk_strategy::Function)
+        human = pop!(party.people)
+        try
+            small_talk_stragey(human)
+        catch error
+            weep_deeply()
+            return ENV["HOME"]
+        end
         # etc.
     ```
 
