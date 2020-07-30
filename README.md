@@ -1,3 +1,30 @@
+
+Great links related to this talk.
+
+Most of the material in this talk, along with a bit more, is available
+as a notebook here:
+https://github.com/ninjaaron/oo-and-polymorphism-in-julia
+
+I should also say that many of the things I will talk about now were
+covered some years ago in a great blog post by Chris Rackaucus,
+[Type-Dispatch Design: Post Object-Oriented Programming for Julia](
+http://www.stochasticlifestyle.com/type-dispatch-design-post-object-oriented-programming-julia/),
+which is linked in the github repo for this talk.
+
+Tom Kwong also has a (relatively) new book about Design patterns in
+Julia which is helpful, [Hands-On Design Patterns and Best Practices
+with Julia](
+https://www.packtpub.com/eu/application-development/hands-design-patterns-julia-10).
+
+Old Peter Norvig talk about design patterns in Dynamic languages:
+http://www.norvig.com/design-patterns/
+
+It's mostly about Dylan, which is kind of a legacy language, but in
+many ways it is a close cousin of Julia with a very similar feature
+set. (It's semantically a Lisp, but it has "normal" syntax, very much
+like Julia) For this reason, many of the things he addresses in the
+talk are applicable to Julia as well.
+
 # Dispatching Design Patterns
 
 > design pattern:
@@ -76,15 +103,6 @@ structures and interfaces in the Julian way using structs, methods,
 abstract types, and parameterized types---design patterns based on
 Julia's unique approach to method dispatch.
 
-Most of the material in this talk, along with a bit more, is available
-as a notebook here:
-https://github.com/ninjaaron/oo-and-polymorphism-in-julia
-
-I should also say that many of the things I will talk about now were
-covered some years ago in a great blog post by Chris Rackaucus,
-[Type-Dispatch Design: Post Object-Oriented Programming for Julia](
-http://www.stochasticlifestyle.com/type-dispatch-design-post-object-oriented-programming-julia/),
-which is linked in the github repo for this talk.
 
 For me, the best features of object orientation are the ability to
 encapsulate complexity in a simple interface and the ability to write
