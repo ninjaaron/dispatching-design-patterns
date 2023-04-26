@@ -775,7 +775,7 @@ factorial function in Haskell:
 
 ```haskell
 factorial 0 = 1
-factorial x = x * fact (x-1)
+factorial x = x * factorial (x-1)
 ```
 
 That means, when the input argument is 0, the output is 1. For all
